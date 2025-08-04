@@ -1,12 +1,11 @@
-export async function loadScene(name, scene) {
+export async function loadScene(name, modules) {
   try {
-    const module = await import(`./scenes/${name}.js`);
-    if (typeof module.default === 'function') {
-      module.default(scene);
-    } else {
-      console.error("El módulo no tiene función `default`.");
+    // Importa módulo de escena
+    const mod = await import(`./scenes/${name}.js`);
+    if (typeof mod.default === 'function') {
+      mod.default(modules);
     }
-  } catch (err) {
-    console.error(`Error al cargar escena "${name}":`, err);
+  } catch (e) {
+    console.error(`Error cargando escena '${name}':`, e);
   }
 }

@@ -1,14 +1,15 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js';
 
 export default function({ scene }) {
-  // Caja pecera
   const boxSize = 20;
+
+  // Caja pecera
   const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
   const boxMaterial = new THREE.MeshBasicMaterial({color:0xffffff, wireframe:true});
   const box = new THREE.Mesh(boxGeometry, boxMaterial);
   scene.add(box);
 
-  // Esfera principal
+  // Esfera
   const radius = 3;
   const geometry = new THREE.SphereGeometry(radius, 100, 100);
 
@@ -34,6 +35,14 @@ export default function({ scene }) {
   });
 
   const sphere = new THREE.Mesh(geometry, material);
-  sphere.name = 'mainSphere';  // importante para controls.js
+  sphere.name = 'mainSphere';
   scene.add(sphere);
+
+  // Retornar info para manipular desde controls.js
+  return {
+    sphere,
+    geometry,
+    radius,
+    boxSize,
+  };
 }

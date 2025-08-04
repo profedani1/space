@@ -1,6 +1,6 @@
-import * as THREE from 'three';
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js";
 
-export default class EscenaEsfera {
+class EscenaEsfera {
   constructor(scene) {
     this.scene = scene;
     this.radius = 3;
@@ -71,4 +71,71 @@ export default class EscenaEsfera {
     this.material.dispose();
     this.scene.remove(this.mesh);
   }
+}
+
+export const name = "Esfera";
+
+export function createScene(renderer, camera, keys, mousePos) {
+  const scene = new THREE.Scene();
+
+  // Luz
+  const light = new THREE.PointLight(0x00FFFF, 50);
+  light.position.set(10,10,10);
+  scene.add(light);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+  // Caja pecera
+  const boxSize = 20;
+  const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+  const boxMaterial = new THREE.MeshBasicMaterial({color:0xffffff, wireframe:true});
+  const box = new THREE.Mesh(boxGeometry, boxMaterial);
+  scene.add(box);
+
+  // Crear la esfera
+  const esfera = new EscenaEsfera(scene);
+
+  // Estado para drag
+  let isDragging = false;
+  let lastMouse = { x: 0, y: 0 };
+
+  // Sensibilidades
+  const sphereDragSensitivity = 0.005;
+
+  // Eventos para rotar esfera
+  renderer.domElement.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    lastMouse.x = e.clientX;
+    lastMouse.y = e.clientY;
+  });
+
+  renderer.domElement.addEventListener("mouseup", () => {
+    isDragging = false;
+  });
+
+  renderer.domElement.addEventListener("mouseleave", () => {
+    isDragging = false;
+  });
+
+  renderer.domElement.addEventListener("mousemove", (e) => {
+    if(isDragging) {
+      const dx = e.clientX - lastMouse.x;
+      const dy = e.clientY - lastMouse.y;
+
+      esfera.rotate(dx * sphereDragSensitivity, dy * sphereDragSensitivity);
+
+      lastMouse.x = e.clientX;
+      lastMouse.y = e.clientY;
+    }
+  });
+
+  // Animación con distorsión
+  function animate(time = 0) {
+    requestAnimationFrame(animate);
+    const t = time * 0.001;
+
+    esfera.distort(t);
+    renderer.render(scene, camera);
+  }
+
+  return { scene, animate };
 }

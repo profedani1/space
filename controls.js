@@ -24,19 +24,29 @@ let sphere = null;
 let positionAttribute = null;
 let vertexCount = 0;
 let basePositions = null;
-
+let radius = 3;
 let boxSize = 20;
 
-export function setupControls({ scene, camera, renderer }) {
-  // Referencias para manipular
-  sphere = scene.getObjectByName('mainSphere');
-  if (sphere) {
-    const geometry = sphere.geometry;
-    positionAttribute = geometry.attributes.position;
-    vertexCount = positionAttribute.count;
-    basePositions = new Float32Array(positionAttribute.array);
-  }
+// Variables para rotación manual de esfera (del original)
+let sphereAngleY = 0;
+let sphereAngleX = 0;
+const sphereLimit = Math.PI/2 - 0.1;
 
+export function setSphereData({ sphere: s, geometry, radius: r, boxSize: b }) {
+  sphere = s;
+  radius = r;
+  boxSize = b;
+
+  positionAttribute = geometry.attributes.position;
+  vertexCount = positionAttribute.count;
+  basePositions = new Float32Array(positionAttribute.array);
+
+  // Inicializa rotación
+  sphereAngleY = sphere.rotation.y;
+  sphereAngleX = sphere.rotation.x;
+}
+
+export function setupControls({ scene, camera, renderer }) {
   window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
   window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
@@ -56,9 +66,12 @@ export function setupControls({ scene, camera, renderer }) {
       const dx = e.clientX - lastMouse.x;
       const dy = e.clientY - lastMouse.y;
 
-      sphere.rotation.y += dx * sphereDragSensitivity;
-      sphere.rotation.x += dy * sphereDragSensitivity;
-      sphere.rotation.x = Math.max(-camPitchLimit, Math.min(sphere.rotation.x, camPitchLimit));
+      sphereAngleY += dx * sphereDragSensitivity;
+      sphereAngleX += dy * sphereDragSensitivity;
+      sphereAngleX = Math.max(-sphereLimit, Math.min(sphereAngleX, sphereLimit));
+
+      sphere.rotation.y = sphereAngleY;
+      sphere.rotation.x = sphereAngleX;
 
       lastMouse.x = e.clientX;
       lastMouse.y = e.clientY;
@@ -75,6 +88,7 @@ export function setupControls({ scene, camera, renderer }) {
     }
   });
 
+  // Manejo táctil igual que antes, adaptado para sphereAngle
   renderer.domElement.addEventListener('touchstart', e => {
     e.preventDefault();
     if(e.touches.length === 1) {
@@ -94,9 +108,12 @@ export function setupControls({ scene, camera, renderer }) {
       const dx = e.touches[0].clientX - lastMouse.x;
       const dy = e.touches[0].clientY - lastMouse.y;
 
-      sphere.rotation.y += dx * sphereDragSensitivity * 2;
-      sphere.rotation.x += dy * sphereDragSensitivity * 2;
-      sphere.rotation.x = Math.max(-camPitchLimit, Math.min(sphere.rotation.x, camPitchLimit));
+      sphereAngleY += dx * sphereDragSensitivity * 2;
+      sphereAngleX += dy * sphereDragSensitivity * 2;
+      sphereAngleX = Math.max(-sphereLimit, Math.min(sphereAngleX, sphereLimit));
+
+      sphere.rotation.y = sphereAngleY;
+      sphere.rotation.x = sphereAngleX;
 
       lastMouse.x = e.touches[0].clientX;
       lastMouse.y = e.touches[0].clientY;
@@ -138,6 +155,20 @@ export function setupControls({ scene, camera, renderer }) {
     }
   }, {passive: false});
 
+  function getTouchDist(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+
+  function getTouchMidpoint(touches) {
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2
+    };
+  }
+
+  // Zoom cámara rueda
   window.addEventListener('wheel', e => {
     e.preventDefault();
 
@@ -157,7 +188,6 @@ export function setupControls({ scene, camera, renderer }) {
     camPosTarget.y = Math.min(limit, Math.max(-limit, camPosTarget.y));
     camPosTarget.z = Math.min(limit, Math.max(-limit, camPosTarget.z));
   }, { passive: false });
-
 }
 
 export function updateCamera({ camera }) {
@@ -216,35 +246,4 @@ export function autoRotateViewByMousePosition() {
     camPitch += autoLookSpeed * intensity;
   } else if(mousePos.y > window.innerHeight - edgeSize) {
     let intensity = (mousePos.y - (window.innerHeight - edgeSize)) / edgeSize;
-    camPitch -= autoLookSpeed * intensity;
-  }
-
-  camPitch = Math.max(-camPitchLimit, Math.min(camPitch, camPitch));
-}
-
-export function distortGeometry(time) {
-  if (!positionAttribute || !sphere) return;
-
-  const π = Math.PI;
-  for(let i=0; i<vertexCount; i++) {
-    const ix = i*3;
-    let x = basePositions[ix];
-    let y = basePositions[ix+1];
-    let z = basePositions[ix+2];
-
-    const len = Math.sqrt(x*x + y*y + z*z);
-    const offset = 0.3 * Math.sin(π*x + time) * Math.cos(π*y + time);
-    const scale = (3 + offset) / len;
-
-    positionAttribute.array[ix] = x*scale;
-    positionAttribute.array[ix+1] = y*scale;
-    positionAttribute.array[ix+2] = z*scale;
-  }
-  positionAttribute.needsUpdate = true;
-}
-
-export function resizeRenderer({ camera, renderer }) {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
+   

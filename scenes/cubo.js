@@ -1,54 +1,75 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js';
+import * as THREE from 'three';
 
-export default function({ scene }) {
-  const boxSize = 6; // tamaño del cubo base
+export default class EscenaCubo {
+  constructor(scene) {
+    this.scene = scene;
+    this.size = 6;
 
-  // Caja pecera (más grande)
-  const peceraSize = 20;
-  const peceraGeometry = new THREE.BoxGeometry(peceraSize, peceraSize, peceraSize);
-  const peceraMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
-  const pecera = new THREE.Mesh(peceraGeometry, peceraMaterial);
-  scene.add(pecera);
+    this.geometry = new THREE.BoxGeometry(this.size, this.size, this.size, 50, 50, 50);
+    this.material = new THREE.ShaderMaterial({
+      wireframe: true,
+      vertexShader: `
+        varying vec3 vPosition;
+        void main() {
+          vPosition = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vPosition;
+        vec3 magenta = vec3(1.0, 0.0, 1.0);
+        vec3 cyan = vec3(0.0, 1.0, 1.0);
+        void main() {
+          float mixValue = (vPosition.x + ${this.size/2}) / ${this.size};
+          vec3 color = mix(magenta, cyan, mixValue);
+          gl_FragColor = vec4(color,1.0);
+        }
+      `
+    });
 
-  // Cubo (nuestra "esfera" cuadrada)
-  const geometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize, 50, 50, 50); // más subdivisiones para distorsión suave
+    this.mesh = new THREE.Mesh(this.geometry, this.material);
+    this.scene.add(this.mesh);
 
-  const material = new THREE.ShaderMaterial({
-    wireframe: true,
-    vertexShader: `
-      varying vec3 vPosition;
-      void main() {
-        vPosition = position;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      varying vec3 vPosition;
-      vec3 magenta = vec3(1.0, 0.0, 1.0);
-      vec3 cyan = vec3(0.0, 1.0, 1.0);
-      void main() {
-        // Color horizontal basado en posición X normalizada del cubo
-        float mixValue = (vPosition.x + ${boxSize/2}) / ${boxSize};
-        vec3 color = mix(magenta, cyan, mixValue);
-        gl_FragColor = vec4(color, 1.0);
-      }
-    `
-  });
+    this.positionAttribute = this.geometry.attributes.position;
+    this.vertexCount = this.positionAttribute.count;
+    this.basePositions = new Float32Array(this.positionAttribute.array);
 
-  const cube = new THREE.Mesh(geometry, material);
-  cube.name = 'mainCube';
-  scene.add(cube);
+    this.angleX = 0;
+    this.angleY = 0;
+    this.limit = Math.PI/2 - 0.1;
+  }
 
-  // Preparar para distorsión (igual que la esfera)
-  const positionAttribute = geometry.attributes.position;
-  const vertexCount = positionAttribute.count;
-  const basePositions = new Float32Array(positionAttribute.array);
+  distort(time) {
+    const π = Math.PI;
+    for(let i=0; i<this.vertexCount; i++) {
+      const ix = i*3;
+      let x = this.basePositions[ix];
+      let y = this.basePositions[ix+1];
+      let z = this.basePositions[ix+2];
 
-  return {
-    cube,
-    geometry,
-    basePositions,
-    vertexCount,
-    boxSize: peceraSize,
-  };
+      const len = Math.sqrt(x*x + y*y + z*z);
+      const offset = 0.3 * Math.sin(π*x + time) * Math.cos(π*y + time);
+      const scale = (this.size/2 + offset) / len;
+
+      this.positionAttribute.array[ix] = x*scale;
+      this.positionAttribute.array[ix+1] = y*scale;
+      this.positionAttribute.array[ix+2] = z*scale;
+    }
+    this.positionAttribute.needsUpdate = true;
+  }
+
+  rotate(dx, dy) {
+    this.angleY += dx;
+    this.angleX += dy;
+    this.angleX = Math.max(-this.limit, Math.min(this.angleX, this.limit));
+
+    this.mesh.rotation.y = this.angleY;
+    this.mesh.rotation.x = this.angleX;
+  }
+
+  dispose() {
+    this.geometry.dispose();
+    this.material.dispose();
+    this.scene.remove(this.mesh);
+  }
 }

@@ -6,7 +6,8 @@ import {
   moveCamera,
   autoRotateViewByMousePosition,
   distortGeometry,
-  resizeRenderer
+  resizeRenderer,
+  setSphereData,
 } from './controls.js';
 
 const scene = new THREE.Scene();
@@ -22,27 +23,34 @@ scene.add(light);
 
 const modules = { scene, camera, renderer };
 
-// Setup controles (mouse, teclado, touch, cámara)
 setupControls(modules);
 
-// Variable para escena actual
 let currentSceneName = 'esfera';
 
-// Carga escena inicial
-await loadScene(currentSceneName, modules);
+let sphereData = null;
 
-// Manejar cambio de escena desde menú
-const sceneSelect = document.getElementById('scene-select');
-sceneSelect.addEventListener('change', async (e) => {
-  currentSceneName = e.target.value;
-  // Limpiar escena excepto luces (para evitar duplicados)
+async function loadCurrentScene() {
+  // Limpiar escena
   while(scene.children.length > 0){
     scene.remove(scene.children[0]);
   }
   scene.add(new THREE.AmbientLight(0xffffff, 0.5));
   scene.add(light);
 
-  await loadScene(currentSceneName, modules);
+  // Carga escena y espera el objeto retornado
+  sphereData = await loadScene(currentSceneName, modules);
+
+  if(sphereData) {
+    // Pasa datos de esfera a controls.js para distorsión y rotación
+    setSphereData(sphereData);
+  }
+}
+
+await loadCurrentScene();
+
+document.getElementById('scene-select').addEventListener('change', async (e) => {
+  currentSceneName = e.target.value;
+  await loadCurrentScene();
 });
 
 window.addEventListener('resize', () => {

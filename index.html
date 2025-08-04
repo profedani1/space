@@ -1,46 +1,85 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Dimensión Espacial Modular</title>
-  <style>body { margin: 0; overflow: hidden; background: black; }</style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Pecera 3D: cámara libre con auto-rotación + menú de escenas</title>
+<style>
+  body { margin: 0; overflow: hidden; background: black; font-family: Arial, sans-serif; color: white; }
+  canvas { display: block; cursor: grab; touch-action: none; }
+
+  canvas:active { cursor: grabbing; }
+
+  /* Transparent overlay edges */
+  .edge-overlay {
+    position: fixed;
+    pointer-events: none; /* no bloquear inputs */
+    z-index: 10;
+  }
+  #edge-left {
+    top: 0; left: 0;
+    width: 150px;
+    height: 100vh;
+    background: linear-gradient(to right, rgba(255,0,255,0.3), transparent);
+  }
+  #edge-right {
+    top: 0; right: 0;
+    width: 150px;
+    height: 100vh;
+    background: linear-gradient(to left, rgba(0,255,255,0.3), transparent);
+  }
+  #edge-top {
+    top: 0; left: 0;
+    width: 100vw;
+    height: 150px;
+    background: linear-gradient(to bottom, rgba(255,0,255,0.3), transparent);
+  }
+  #edge-bottom {
+    bottom: 0; left: 0;
+    width: 100vw;
+    height: 150px;
+    background: linear-gradient(to top, rgba(0,255,255,0.3), transparent);
+  }
+
+  /* Menú simple */
+  #menu {
+    position: fixed;
+    top: 10px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    background: rgba(0,0,0,0.5);
+    padding: 8px 16px;
+    border-radius: 8px;
+  }
+  #menu select {
+    font-size: 16px;
+    background: black;
+    color: white;
+    border: 1px solid #888;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+</style>
 </head>
 <body>
-  <script type="module">
-    import * as THREE from 'https://cdn.skypack.dev/three';
-    import { OrbitControls } from 'https://cdn.skypack.dev/three/examples/jsm/controls/OrbitControls.js';
-    import { loadScene } from './loader.js';
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 0, 5);
+<!-- Menú selección escena -->
+<div id="menu">
+  <label for="scene-select">Escena:</label>
+  <select id="scene-select">
+    <option value="esfera" selected>Esfera</option>
+    <!-- Puedes agregar más escenas aquí -->
+    <!--<option value="otraEscena">Otra Escena</option>-->
+  </select>
+</div>
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+<!-- Transparent overlays -->
+<div id="edge-left" class="edge-overlay"></div>
+<div id="edge-right" class="edge-overlay"></div>
+<div id="edge-top" class="edge-overlay"></div>
+<div id="edge-bottom" class="edge-overlay"></div>
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+<script type="module" src="main.js"></script>
 
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(5, 5, 5);
-    scene.add(light);
-    scene.add(new THREE.AmbientLight(0x404040));
-
-    // Escena por parámetro (?scene=esfera)
-    const urlParams = new URLSearchParams(window.location.search);
-    const sceneName = urlParams.get('scene') || 'esfera';
-
-    // Cargar escena dinámica
-    loadScene(sceneName, scene);
-
-    function animate() {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    }
-
-    animate();
-  </script>
 </body>
 </html>

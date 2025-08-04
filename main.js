@@ -1,110 +1,82 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js";
+import { scenes } from './scenes/index.js';
 
-// Importar escenas
-import * as esferaModule from "./scenes/esfera.js";
-import * as cuadradoModule from "./scenes/cuadrado.js";
-// para agregar nueva escena solo importarla aquí
-// import * as nuevaEscenaModule from "./scenes/nuevaEscena.js";
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-const scenesModules = [
-  esferaModule,
-  cuadradoModule,
-  // nuevaEscenaModule,
-];
-
-// Crear menú dinámico
-const menu = document.getElementById("scene-select");
-scenesModules.forEach((mod, i) => {
-  const option = document.createElement("option");
-  option.value = i; // índice para seleccionar
-  option.textContent = mod.name || `Escena ${i + 1}`;
-  menu.appendChild(option);
-});
-
-let renderer, camera;
-let currentScene = null;
-let currentAnimate = null;
-let animationId = null;
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 10);
 
 const keys = {};
-let mousePos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+const mousePos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 
-window.addEventListener("keydown", (e) => (keys[e.key.toLowerCase()] = true));
-window.addEventListener("keyup", (e) => (keys[e.key.toLowerCase()] = false));
-window.addEventListener("mousemove", (e) => {
-  mousePos.x = e.clientX;
-  mousePos.y = e.clientY;
-});
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-function initRendererAndCamera() {
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
-
-  camera = new THREE.PerspectiveCamera(
-    60,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
-  camera.position.set(0, 0, 10);
-
-  window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-}
-
-function cleanupCurrentScene() {
-  if (animationId !== null) {
-    cancelAnimationFrame(animationId);
-    animationId = null;
-  }
-  if (currentScene) {
-    currentScene.traverse((obj) => {
-      if (obj.geometry) obj.geometry.dispose();
-      if (obj.material) {
-        if (Array.isArray(obj.material)) {
-          obj.material.forEach((m) => m.dispose());
-        } else {
-          obj.material.dispose();
-        }
-      }
-    });
-    currentScene.clear();
-    currentScene = null;
-  }
-}
-
-function switchScene(index) {
-  cleanupCurrentScene();
-
-  if (!renderer || !camera) {
-    initRendererAndCamera();
-  }
-
-  const mod = scenesModules[index];
-  if (!mod) {
-    currentScene = new THREE.Scene();
-    currentAnimate = () => {
-      animationId = requestAnimationFrame(currentAnimate);
-      renderer.render(currentScene, camera);
-    };
-    currentAnimate();
-    return;
-  }
-
-  const { scene, animate } = mod.createScene(renderer, camera, keys, mousePos);
-  currentScene = scene;
-  currentAnimate = animate;
-
-  currentAnimate();
-}
-
-menu.addEventListener("change", (e) => {
-  switchScene(parseInt(e.target.value));
 });
 
-// Cargar escena por defecto (la primera)
-switchScene(0);
+let currentScene = null;
+let currentAnimate = null;
+
+const sceneSelect = document.getElementById('scene-select');
+
+// Cargar todas las escenas y llenar menú
+async function loadScenes() {
+  const loadedScenes = [];
+  for (const loadScene of scenes) {
+    const module = await loadScene();
+    loadedScenes.push(module);
+  }
+
+  // Llenar menú
+  sceneSelect.innerHTML = '';
+  loadedScenes.forEach((mod, i) => {
+    const option = document.createElement('option');
+    option.value = i;
+    option.textContent = mod.name || `Escena ${i + 1}`;
+    sceneSelect.appendChild(option);
+  });
+
+  // Cargar primera escena por defecto
+  loadSceneByIndex(0);
+
+  // Cambiar escena al seleccionar
+  sceneSelect.onchange = () => {
+    loadSceneByIndex(sceneSelect.selectedIndex);
+  };
+
+  async function loadSceneByIndex(index) {
+    if (currentAnimate) {
+      cancelAnimationFrame(currentAnimate._id);
+    }
+    if (currentScene && currentScene.dispose) {
+      currentScene.dispose();
+    }
+
+    const mod = loadedScenes[index];
+
+    // Limpiar renderer DOM (opcional, si hay más objetos)
+    while (renderer.scene) {
+      renderer.scene = null;
+    }
+
+    // Crear la escena con la función exportada
+    const { scene, animate } = await mod.createScene(renderer, camera, keys, mousePos);
+    currentScene = scene;
+    
+    // Animación con control para cancelación
+    function animateLoop(t) {
+      currentAnimate._id = requestAnimationFrame(animateLoop);
+      animate(t);
+    }
+    currentAnimate = { _id: null };
+    animateLoop();
+  }
+}
+
+loadScenes();
